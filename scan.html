@@ -1,6 +1,103 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Scanner LJK</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 16px;
+      background-color: #f7f7f7;
+    }
+    h2 {
+      margin-top: 24px;
+    }
+    input[type="text"] {
+      width: 32px;
+      text-align: center;
+      margin: 2px;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 300px;
+      gap: 4px;
+    }
+    #preview {
+      margin-top: 16px;
+      max-width: 100%;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 12px;
+      padding: 8px 16px;
+    }
+  </style>
+</head>
 <body>
-    <p>Hello World!</p>
+  <h1>Scan LJK</h1>
+
+  <h2>Kunci Jawaban PG (1-24)</h2>
+  <div class="grid" id="pgInputs"></div>
+
+  <h2>Kunci Jawaban PGK (1-7)</h2>
+  <div class="grid" id="pgkInputs"></div>
+
+  <h2>Upload Gambar LJK</h2>
+  <input type="file" id="imageInput" accept="image/*"><br>
+  <img id="preview" src="#" alt="Preview" style="display:none;" />
+
+  <br>
+  <button onclick="process()">Scan LJK</button>
+
+  <script>
+    // Generate input fields PG dan PGK
+    const pgContainer = document.getElementById('pgInputs');
+    for (let i = 1; i <= 24; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 1;
+      input.placeholder = i;
+      input.id = 'pg' + i;
+      pgContainer.appendChild(input);
+    }
+
+    const pgkContainer = document.getElementById('pgkInputs');
+    for (let i = 1; i <= 7; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 1;
+      input.placeholder = i;
+      input.id = 'pgk' + i;
+      pgkContainer.appendChild(input);
+    }
+
+    // Tampilkan pratinjau gambar
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    imageInput.onchange = function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+      }
+    };
+
+    // Fungsi placeholder untuk proses scan
+    function process() {
+      const jawabanPG = [];
+      const jawabanPGK = [];
+
+      for (let i = 1; i <= 24; i++) {
+        jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
+      }
+      for (let i = 1; i <= 7; i++) {
+        jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
+      }
+
+      alert("Kunci PG: " + jawabanPG.join(', ') + "\nKunci PGK: " + jawabanPGK.join(', '));
+      // Di sini kamu bisa tambahkan logika pemrosesan OpenCV.js
+    }
+  </script>
 </body>
 </html>
