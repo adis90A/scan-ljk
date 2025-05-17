@@ -1,79 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Scan Jawaban Siswa</title>
+  <meta charset="UTF-8">
+  <title>Scan LJK</title>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
   <style>
-    canvas, video, img {
-      max-width: 100%;
-    }
+    canvas, video { max-width: 100%; display: block; margin: auto; }
+    textarea { width: 90%; margin: 10px auto; display: block; }
   </style>
 </head>
 <body>
-  <h3>Input Kunci Jawaban</h3>
-  <textarea id="kunciJawaban" rows="3" cols="40" placeholder="Misal: A,B,C,D,A,..."></textarea>
-  <button onclick="simpanKunci()">Simpan Kunci</button>
+  <h2>Input Kunci Jawaban</h2>
+  <textarea id="kunciPG" rows="2" placeholder="Contoh: A,B,C,D,... (24 huruf)"></textarea>
+  <textarea id="kunciPGK" rows="2" placeholder="Contoh: A,B,C,D,E,F,G,H,I (7 huruf)"></textarea>
+  <button onclick="saveKunci()">Simpan Kunci</button>
+  <hr>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+  <button onclick="captureAndProcess()">Scan Jawaban</button>
 
-  <h3>Ambil Gambar</h3>
-  <input type="file" accept="image/*" id="imageInput" capture="environment">
-  <br>
-  <img id="preview" style="display:none;">
-  <canvas id="canvasOutput"></canvas>
-
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
   <script>
-    let kunci = [];
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    let kunciPG = [], kunciPGK = [];
 
-    function simpanKunci() {
-      const input = document.getElementById("kunciJawaban").value;
-      kunci = input.split(',').map(j => j.trim().toUpperCase());
-      localStorage.setItem("kunciJawaban", JSON.stringify(kunci));
-      alert("Kunci tersimpan");
+    // Load kunci dari localStorage jika ada
+    if (localStorage.kunciPG) kunciPG = localStorage.kunciPG.split(',');
+    if (localStorage.kunciPGK) kunciPGK = localStorage.kunciPGK.split(',');
+
+    function saveKunci() {
+      kunciPG = document.getElementById('kunciPG').value.split(',');
+      kunciPGK = document.getElementById('kunciPGK').value.split(',');
+      localStorage.kunciPG = kunciPG.join(',');
+      localStorage.kunciPGK = kunciPGK.join(',');
+      alert("Kunci disimpan.");
     }
 
-    function loadKunci() {
-      const simpanan = localStorage.getItem("kunciJawaban");
-      if (simpanan) {
-        kunci = JSON.parse(simpanan);
-        document.getElementById("kunciJawaban").value = kunci.join(',');
-      }
+    async function startCamera() {
+      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
     }
 
-    function onOpenCvReady() {
-      document.getElementById("imageInput").addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        const img = document.getElementById("preview");
-        img.src = URL.createObjectURL(file);
-        img.onload = () => {
-          processImage(img);
-        };
-        img.style.display = "block";
-      });
-      loadKunci();
+    function captureAndProcess() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      let img = cv.imread(canvas);
+      processImage(img);
+      img.delete();
     }
 
-    function processImage(imgElement) {
-      let src = cv.imread(imgElement);
+    function processImage(src) {
       let gray = new cv.Mat();
       let blur = new cv.Mat();
-      let circles = new cv.Mat();
+      let thresh = new cv.Mat();
 
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-      cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 1.5, 1.5);
-      cv.HoughCircles(blur, circles, cv.HOUGH_GRADIENT, 1, 20,
-                      100, 30, 10, 30);
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
+      cv.adaptiveThreshold(blur, thresh, 255, cv.ADAPTIVE_THRESH_MEAN_C,
+          cv.THRESH_BINARY_INV, 11, 2);
 
-      for (let i = 0; i < circles.cols; ++i) {
-        let x = circles.data32F[i * 3];
-        let y = circles.data32F[i * 3 + 1];
-        let radius = circles.data32F[i * 3 + 2];
-        let center = new cv.Point(x, y);
-        cv.circle(src, center, radius, new cv.Scalar(255, 0, 0, 255), 2);
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      for (let i = 0; i < contours.size(); i++) {
+        let cnt = contours.get(i);
+        let area = cv.contourArea(cnt);
+        if (area > 300 && area < 1500) {
+          let perimeter = cv.arcLength(cnt, true);
+          let circularity = 4 * Math.PI * (area / (perimeter * perimeter));
+          if (circularity > 0.7) {
+            let moments = cv.moments(cnt);
+            let cx = moments.m10 / moments.m00;
+            let cy = moments.m01 / moments.m00;
+            cv.circle(src, new cv.Point(cx, cy), 10, [0, 255, 0, 255], 2);
+          }
+        }
+        cnt.delete();
       }
 
-      cv.imshow("canvasOutput", src);
-      src.delete(); gray.delete(); blur.delete(); circles.delete();
+      cv.imshow('canvas', src);
+      gray.delete(); blur.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
     }
+
+    startCamera();
   </script>
 </body>
 </html>
