@@ -1,161 +1,79 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Scanner LJK dengan OpenCV.js</title>
+  <meta charset="utf-8">
+  <title>Scan Jawaban Siswa</title>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 16px;
-      background-color: #f7f7f7;
-    }
-    h2 {
-      margin-top: 24px;
-    }
-    input[type="text"] {
-      width: 32px;
-      text-align: center;
-      margin: 2px;
-    }
-    .grid {
-      display: flex;
-      flex-wrap: wrap;
-      max-width: 300px;
-      gap: 4px;
-    }
-    #preview {
-      margin-top: 16px;
+    canvas, video, img {
       max-width: 100%;
-      border: 1px solid #ccc;
-    }
-    button {
-      margin-top: 12px;
-      padding: 8px 16px;
-    }
-    #status {
-      margin-top: 12px;
-      font-weight: bold;
-      color: green;
     }
   </style>
 </head>
 <body>
-  <h1>Scan LJK dengan OpenCV.js</h1>
+  <h3>Input Kunci Jawaban</h3>
+  <textarea id="kunciJawaban" rows="3" cols="40" placeholder="Misal: A,B,C,D,A,..."></textarea>
+  <button onclick="simpanKunci()">Simpan Kunci</button>
 
-  <div id="status">Memuat OpenCV.js...</div>
+  <h3>Ambil Gambar</h3>
+  <input type="file" accept="image/*" id="imageInput" capture="environment">
+  <br>
+  <img id="preview" style="display:none;">
+  <canvas id="canvasOutput"></canvas>
 
-  <h2>Kunci Jawaban PG (1-24)</h2>
-  <div class="grid" id="pgInputs"></div>
-
-  <h2>Kunci Jawaban PGK (1-7)</h2>
-  <div class="grid" id="pgkInputs"></div>
-
-  <h2>Upload Gambar LJK</h2>
-  <input type="file" id="imageInput" accept="image/*" /><br />
-  <img id="preview" src="#" alt="Preview" style="display:none;" />
-
-  <br />
-  <button onclick="process()">Scan LJK</button>
-
-  <script async src="https://docs.opencv.org/4.7.0/opencv.js" onload="onOpenCvReady()" ></script>
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
   <script>
-    let cvReady = false;
+    let kunci = [];
+
+    function simpanKunci() {
+      const input = document.getElementById("kunciJawaban").value;
+      kunci = input.split(',').map(j => j.trim().toUpperCase());
+      localStorage.setItem("kunciJawaban", JSON.stringify(kunci));
+      alert("Kunci tersimpan");
+    }
+
+    function loadKunci() {
+      const simpanan = localStorage.getItem("kunciJawaban");
+      if (simpanan) {
+        kunci = JSON.parse(simpanan);
+        document.getElementById("kunciJawaban").value = kunci.join(',');
+      }
+    }
 
     function onOpenCvReady() {
-      document.getElementById('status').innerText = 'OpenCV.js sudah siap!';
-      cvReady = true;
-      console.log('OpenCV.js loaded');
+      document.getElementById("imageInput").addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        const img = document.getElementById("preview");
+        img.src = URL.createObjectURL(file);
+        img.onload = () => {
+          processImage(img);
+        };
+        img.style.display = "block";
+      });
+      loadKunci();
     }
 
-    // Generate input fields PG dan PGK
-    const pgContainer = document.getElementById('pgInputs');
-    for (let i = 1; i <= 24; i++) {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.maxLength = 1;
-      input.placeholder = i;
-      input.id = 'pg' + i;
-      pgContainer.appendChild(input);
-    }
+    function processImage(imgElement) {
+      let src = cv.imread(imgElement);
+      let gray = new cv.Mat();
+      let blur = new cv.Mat();
+      let circles = new cv.Mat();
 
-    const pgkContainer = document.getElementById('pgkInputs');
-    for (let i = 1; i <= 7; i++) {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.maxLength = 1;
-      input.placeholder = i;
-      input.id = 'pgk' + i;
-      pgkContainer.appendChild(input);
-    }
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 1.5, 1.5);
+      cv.HoughCircles(blur, circles, cv.HOUGH_GRADIENT, 1, 20,
+                      100, 30, 10, 30);
 
-    // Preview gambar saat upload
-    const imageInput = document.getElementById('imageInput');
-    const preview = document.getElementById('preview');
-    imageInput.onchange = function(event) {
-      const file = event.target.files[0];
-      if (file) {
-        preview.src = URL.createObjectURL(file);
-        preview.style.display = 'block';
+      for (let i = 0; i < circles.cols; ++i) {
+        let x = circles.data32F[i * 3];
+        let y = circles.data32F[i * 3 + 1];
+        let radius = circles.data32F[i * 3 + 2];
+        let center = new cv.Point(x, y);
+        cv.circle(src, center, radius, new cv.Scalar(255, 0, 0, 255), 2);
       }
-    };
 
-   function process() {
-  if (!cvReady) {
-    alert('OpenCV.js belum siap! Mohon tunggu beberapa detik lalu coba lagi.');
-    return;
-  }
-
-  if (preview.src === "" || preview.style.display === "none") {
-    alert("Silakan upload gambar LJK terlebih dahulu.");
-    return;
-  }
-
-  // Ambil kunci jawaban PG dan PGK (bisa kamu pakai nanti)
-  const jawabanPG = [];
-  const jawabanPGK = [];
-
-  for (let i = 1; i <= 24; i++) {
-    jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
-  }
-  for (let i = 1; i <= 7; i++) {
-    jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
-  }
-
-  alert(
-    'Kunci PG: ' + jawabanPG.join(', ') + '\n' +
-    'Kunci PGK: ' + jawabanPGK.join(', ')
-  );
-
-  try {
-    // Buat elemen canvas baru untuk menampilkan hasil proses OpenCV
-    let canvasOutput = document.getElementById('canvasOutput');
-    if (!canvasOutput) {
-      canvasOutput = document.createElement('canvas');
-      canvasOutput.id = 'canvasOutput';
-      canvasOutput.style.marginTop = '16px';
-      preview.parentNode.insertBefore(canvasOutput, preview.nextSibling);
+      cv.imshow("canvasOutput", src);
+      src.delete(); gray.delete(); blur.delete(); circles.delete();
     }
-
-    // Baca gambar dari preview ke Mat OpenCV
-    let src = cv.imread(preview);
-    let gray = new cv.Mat();
-
-    // Konversi ke grayscale
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-    // Tampilkan hasil ke canvas
-    cv.imshow(canvasOutput, gray);
-
-    // Bersihkan memori
-    src.delete();
-    gray.delete();
-
-  } catch (err) {
-    alert('Error saat memproses gambar: ' + err);
-    console.error(err);
-  }
-}
-
   </script>
 </body>
 </html>
