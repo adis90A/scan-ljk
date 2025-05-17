@@ -99,35 +99,63 @@
       }
     };
 
-    // Fungsi scan LJK placeholder (tunggu OpenCV siap)
-    function process() {
-      if (!cvReady) {
-        alert('OpenCV.js belum siap! Mohon tunggu beberapa detik lalu coba lagi.');
-        return;
-      }
+   function process() {
+  if (!cvReady) {
+    alert('OpenCV.js belum siap! Mohon tunggu beberapa detik lalu coba lagi.');
+    return;
+  }
 
-      // Ambil kunci jawaban PG dan PGK
-      const jawabanPG = [];
-      const jawabanPGK = [];
+  if (preview.src === "" || preview.style.display === "none") {
+    alert("Silakan upload gambar LJK terlebih dahulu.");
+    return;
+  }
 
-      for (let i = 1; i <= 24; i++) {
-        jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
-      }
-      for (let i = 1; i <= 7; i++) {
-        jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
-      }
+  // Ambil kunci jawaban PG dan PGK (bisa kamu pakai nanti)
+  const jawabanPG = [];
+  const jawabanPGK = [];
 
-      alert(
-        'Kunci PG: ' + jawabanPG.join(', ') + '\n' +
-        'Kunci PGK: ' + jawabanPGK.join(', ')
-      );
+  for (let i = 1; i <= 24; i++) {
+    jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
+  }
+  for (let i = 1; i <= 7; i++) {
+    jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
+  }
 
-      // TODO: Di sini tambahkan logika scan dengan OpenCV.js menggunakan gambar preview.src
-      // Contoh awal:
-      // let src = cv.imread(preview);
-      // ... proses OpenCV ...
-      // src.delete();
+  alert(
+    'Kunci PG: ' + jawabanPG.join(', ') + '\n' +
+    'Kunci PGK: ' + jawabanPGK.join(', ')
+  );
+
+  try {
+    // Buat elemen canvas baru untuk menampilkan hasil proses OpenCV
+    let canvasOutput = document.getElementById('canvasOutput');
+    if (!canvasOutput) {
+      canvasOutput = document.createElement('canvas');
+      canvasOutput.id = 'canvasOutput';
+      canvasOutput.style.marginTop = '16px';
+      preview.parentNode.insertBefore(canvasOutput, preview.nextSibling);
     }
+
+    // Baca gambar dari preview ke Mat OpenCV
+    let src = cv.imread(preview);
+    let gray = new cv.Mat();
+
+    // Konversi ke grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+    // Tampilkan hasil ke canvas
+    cv.imshow(canvasOutput, gray);
+
+    // Bersihkan memori
+    src.delete();
+    gray.delete();
+
+  } catch (err) {
+    alert('Error saat memproses gambar: ' + err);
+    console.error(err);
+  }
+}
+
   </script>
 </body>
 </html>
