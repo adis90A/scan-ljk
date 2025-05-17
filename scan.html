@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Scanner LJK TEST</title>
+  <title>Scanner LJK</title>
   <style>
     body {
       font-family: sans-serif;
@@ -32,10 +32,16 @@
       margin-top: 12px;
       padding: 8px 16px;
     }
+    #output {
+      margin-top: 20px;
+      background: #fff;
+      padding: 12px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
-  <h1>Scan LJK TEST</h1>
+  <h1>Scan LJK</h1>
 
   <h2>Kunci Jawaban PG (1-24)</h2>
   <div class="grid" id="pgInputs"></div>
@@ -48,7 +54,9 @@
   <img id="preview" src="#" alt="Preview" style="display:none;" />
 
   <br>
-  <button onclick="process()">Scan LJK</button>
+  <button onclick="process()">Scan & Cek Jawaban</button>
+
+  <div id="output"></div>
 
   <script>
     // Generate input fields PG dan PGK
@@ -83,20 +91,53 @@
       }
     };
 
-    // Fungsi placeholder untuk proses scan
+    // Simulasi hasil scan jawaban siswa
+    function hasilJawabanSiswaDummy() {
+      const pilihan = ['A', 'B', 'C', 'D'];
+      const jawabanPG = Array.from({length: 24}, () => pilihan[Math.floor(Math.random() * 4)]);
+      const jawabanPGK = Array.from({length: 7}, () => pilihan[Math.floor(Math.random() * 4)]);
+      return { pg: jawabanPG, pgk: jawabanPGK };
+    }
+
     function process() {
-      const jawabanPG = [];
-      const jawabanPGK = [];
+      const kunciPG = [];
+      const kunciPGK = [];
 
       for (let i = 1; i <= 24; i++) {
-        jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
+        kunciPG.push(document.getElementById('pg' + i).value.toUpperCase());
       }
       for (let i = 1; i <= 7; i++) {
-        jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
+        kunciPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
       }
 
-      alert("Kunci PG: " + jawabanPG.join(', ') + "\nKunci PGK: " + jawabanPGK.join(', '));
-      // Di sini kamu bisa tambahkan logika pemrosesan OpenCV.js
+      const siswa = hasilJawabanSiswaDummy(); // nanti diganti hasil scan sebenarnya
+      const output = document.getElementById('output');
+
+      // Hitung skor
+      let benarPG = 0;
+      let benarPGK = 0;
+
+      const hasilPG = siswa.pg.map((jwb, i) => {
+        const benar = jwb === kunciPG[i];
+        if (benar) benarPG++;
+        return `${i+1}. ${jwb} (${benar ? '✔️' : `❌ kunci: ${kunciPG[i]}`})`;
+      });
+
+      const hasilPGK = siswa.pgk.map((jwb, i) => {
+        const benar = jwb === kunciPGK[i];
+        if (benar) benarPGK++;
+        return `${i+1}. ${jwb} (${benar ? '✔️' : `❌ kunci: ${kunciPGK[i]}`})`;
+      });
+
+      output.innerHTML = `
+        <h3>Jawaban PG</h3>
+        <pre>${hasilPG.join('\n')}</pre>
+        <strong>Benar: ${benarPG} / 24</strong>
+
+        <h3>Jawaban PGK</h3>
+        <pre>${hasilPGK.join('\n')}</pre>
+        <strong>Benar: ${benarPGK} / 7</strong>
+      `;
     }
   </script>
 </body>
