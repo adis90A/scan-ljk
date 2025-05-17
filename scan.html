@@ -1,21 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Scan Jawaban</title>
+  <meta charset="utf-8">
+  <title>LJK Scanner</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 10px; }
+    video, canvas { width: 90%; max-width: 500px; margin: 10px 0; }
+    textarea { width: 90%; height: 60px; }
+    button { padding: 10px; margin: 5px; }
+    .section { margin-top: 20px; }
+  </style>
 </head>
 <body>
-  <video id="video" width="100%" autoplay playsinline></video>
+  <h2>Scan Jawaban Siswa</h2>
+
+  <!-- Kamera Live View -->
+  <video id="video" autoplay playsinline></video><br>
+  <button onclick="capture()">📸 Ambil Gambar</button>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <!-- Input Kunci Jawaban -->
+  <div class="section">
+    <h3>Kunci Jawaban PG (24 soal, A-D)</h3>
+    <textarea id="kunciPG" placeholder="Contoh: A,B,C,D,A,... (24 huruf)"></textarea>
+
+    <h3>Kunci PG Kompleks (7 soal, A-I)</h3>
+    <textarea id="kunciPGK" placeholder="Contoh: A,B,I,H,... (7 huruf)"></textarea>
+
+    <button onclick="simpanKunci()">💾 Simpan Kunci</button>
+    <button onclick="muatKunci()">📂 Muat Kunci</button>
+  </div>
+
+  <!-- Proses Deteksi -->
+  <div class="section">
+    <button onclick="proses()">🔍 Proses Jawaban</button>
+    <pre id="output"></pre>
+  </div>
+
+  <!-- OpenCV.js -->
+  <script async src="https://docs.opencv.org/4.7.0/opencv.js" onload="onOpenCvReady()" type="text/javascript"></script>
   <script>
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let output = document.getElementById('output');
+
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const video = document.getElementById('video');
+        let stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
-      } catch (error) {
-        alert('Izin kamera ditolak atau tidak tersedia: ' + error);
+      } catch (e) {
+        alert("Izin kamera ditolak: " + e);
       }
     }
-    startCamera();
+
+    function capture() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      let ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'block';
+    }
+
+    function simpanKunci() {
+      localStorage.setItem("kunciPG", document.getElementById("kunciPG").value);
+      localStorage.setItem("kunciPGK", document.getElementById("kunciPGK").value);
+      alert("Kunci disimpan.");
+    }
+
+    function muatKunci() {
+      document.getElementById("kunciPG").value = localStorage.getItem("kunciPG") || "";
+      document.getElementById("kunciPGK").value = localStorage.getItem("kunciPGK") || "";
+    }
+
+    function onOpenCvReady() {
+      console.log("OpenCV.js loaded.");
+      startCamera();
+    }
+
+    function proses() {
+      if (!cv || !cv.imread) {
+        alert("OpenCV belum siap");
+        return;
+      }
+
+      let src = cv.imread(canvas);
+      let dst = new cv.Mat();
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+      cv.threshold(dst, dst, 100, 255, cv.THRESH_BINARY_INV);
+
+      // Temukan lingkaran (hitam = jawaban)
+      let circles = new cv.Mat();
+      cv.HoughCircles(dst, circles, cv.HOUGH_GRADIENT, 1, 20, 100, 30, 10, 50);
+
+      output.innerText = `Bulatan terdeteksi: ${circles.cols}\n`;
+
+      for (let i = 0; i < circles.cols; ++i) {
+        let x = circles.data32F[i * 3];
+        let y = circles.data32F[i * 3 + 1];
+        let radius = circles.data32F[i * 3 + 2];
+        output.innerText += `- Bulatan di (${x.toFixed(1)}, ${y.toFixed(1)}), radius ${radius.toFixed(1)}\n`;
+      }
+
+      src.delete(); dst.delete(); circles.delete();
+    }
   </script>
 </body>
 </html>
