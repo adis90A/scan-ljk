@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Scanner LJK</title>
+  <meta charset="UTF-8" />
+  <title>Scanner LJK dengan OpenCV.js</title>
   <style>
     body {
       font-family: sans-serif;
@@ -23,7 +23,7 @@
       max-width: 300px;
       gap: 4px;
     }
-    #preview {
+    #preview, #canvasOutput {
       margin-top: 16px;
       max-width: 100%;
       border: 1px solid #ccc;
@@ -32,16 +32,15 @@
       margin-top: 12px;
       padding: 8px 16px;
     }
-    #output {
-      margin-top: 20px;
-      background: #fff;
-      padding: 12px;
-      border: 1px solid #ccc;
+    #status {
+      margin-top: 8px;
+      font-weight: bold;
     }
   </style>
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
 </head>
 <body>
-  <h1>Scan LJK</h1>
+  <h1>Scan LJK dengan OpenCV.js</h1>
 
   <h2>Kunci Jawaban PG (1-24)</h2>
   <div class="grid" id="pgInputs"></div>
@@ -50,13 +49,13 @@
   <div class="grid" id="pgkInputs"></div>
 
   <h2>Upload Gambar LJK</h2>
-  <input type="file" id="imageInput" accept="image/*"><br>
+  <input type="file" id="imageInput" accept="image/*" /><br />
   <img id="preview" src="#" alt="Preview" style="display:none;" />
+  <canvas id="canvasOutput" style="display:none;"></canvas>
+  <div id="status">Memuat OpenCV...</div>
 
-  <br>
-  <button onclick="process()">Scan & Cek Jawaban</button>
-
-  <div id="output"></div>
+  <br />
+  <button onclick="process()">Scan LJK</button>
 
   <script>
     // Generate input fields PG dan PGK
@@ -80,7 +79,7 @@
       pgkContainer.appendChild(input);
     }
 
-    // Tampilkan pratinjau gambar
+    // Preview gambar yang diupload
     const imageInput = document.getElementById('imageInput');
     const preview = document.getElementById('preview');
     imageInput.onchange = function(event) {
@@ -88,56 +87,58 @@
       if (file) {
         preview.src = URL.createObjectURL(file);
         preview.style.display = 'block';
+        document.getElementById('canvasOutput').style.display = 'none';
       }
     };
 
-    // Simulasi hasil scan jawaban siswa
-    function hasilJawabanSiswaDummy() {
-      const pilihan = ['A', 'B', 'C', 'D'];
-      const jawabanPG = Array.from({length: 24}, () => pilihan[Math.floor(Math.random() * 4)]);
-      const jawabanPGK = Array.from({length: 7}, () => pilihan[Math.floor(Math.random() * 4)]);
-      return { pg: jawabanPG, pgk: jawabanPGK };
+    // Status OpenCV
+    function onOpenCvReady() {
+      document.getElementById('status').innerText = 'OpenCV siap!';
     }
 
     function process() {
-      const kunciPG = [];
-      const kunciPGK = [];
+      if (!cv || !cv.imread) {
+        alert('OpenCV.js belum siap!');
+        return;
+      }
 
+      if (preview.style.display === 'none') {
+        alert('Silakan unggah gambar LJK terlebih dahulu.');
+        return;
+      }
+
+      // Ambil input kunci jawaban
+      const jawabanPG = [];
+      const jawabanPGK = [];
       for (let i = 1; i <= 24; i++) {
-        kunciPG.push(document.getElementById('pg' + i).value.toUpperCase());
+        jawabanPG.push(document.getElementById('pg' + i).value.toUpperCase());
       }
       for (let i = 1; i <= 7; i++) {
-        kunciPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
+        jawabanPGK.push(document.getElementById('pgk' + i).value.toUpperCase());
       }
 
-      const siswa = hasilJawabanSiswaDummy(); // nanti diganti hasil scan sebenarnya
-      const output = document.getElementById('output');
+      // Proses gambar dengan OpenCV
+      let src = cv.imread(preview);
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-      // Hitung skor
-      let benarPG = 0;
-      let benarPGK = 0;
+      // Contoh thresholding (otomatis)
+      let thresh = new cv.Mat();
+      cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
 
-      const hasilPG = siswa.pg.map((jwb, i) => {
-        const benar = jwb === kunciPG[i];
-        if (benar) benarPG++;
-        return `${i+1}. ${jwb} (${benar ? '✔️' : `❌ kunci: ${kunciPG[i]}`})`;
-      });
+      // Tampilkan hasil di canvas
+      const canvas = document.getElementById('canvasOutput');
+      canvas.style.display = 'block';
+      cv.imshow(canvas, thresh);
 
-      const hasilPGK = siswa.pgk.map((jwb, i) => {
-        const benar = jwb === kunciPGK[i];
-        if (benar) benarPGK++;
-        return `${i+1}. ${jwb} (${benar ? '✔️' : `❌ kunci: ${kunciPGK[i]}`})`;
-      });
+      // Bersihkan
+      src.delete();
+      gray.delete();
+      thresh.delete();
 
-      output.innerHTML = `
-        <h3>Jawaban PG</h3>
-        <pre>${hasilPG.join('\n')}</pre>
-        <strong>Benar: ${benarPG} / 24</strong>
-
-        <h3>Jawaban PGK</h3>
-        <pre>${hasilPGK.join('\n')}</pre>
-        <strong>Benar: ${benarPGK} / 7</strong>
-      `;
+      alert("Kunci PG: " + jawabanPG.join(', ') + "\nKunci PGK: " + jawabanPGK.join(', ') + "\nGambar telah diproses (grayscale + threshold).");
+      
+      // TODO: Tambahkan logika pendeteksian isian LJK dan pencocokan jawaban
     }
   </script>
 </body>
