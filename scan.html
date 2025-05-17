@@ -2,108 +2,165 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>LJK Scanner</title>
+  <title>LJK Scanner Interaktif</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 10px; }
-    video, canvas { width: 90%; max-width: 500px; margin: 10px 0; }
-    textarea { width: 90%; height: 60px; }
-    button { padding: 10px; margin: 5px; }
-    .section { margin-top: 20px; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { margin: 0; padding: 1em; background: #f5f5f5; }
+
+    h2, h3 { text-align: center; }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 1em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    video, canvas {
+      width: 100%;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 5px 0;
+      font-size: 16px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #0b7dda;
+    }
+
+    .section {
+      margin: 1.5em 0;
+    }
+
+    .card {
+      background: #f9f9f9;
+      padding: 1em;
+      border-radius: 8px;
+      margin-top: 1em;
+    }
+
+    pre {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 1em;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
   </style>
 </head>
 <body>
-  <h2>Scan Jawaban Siswa</h2>
 
-  <!-- Kamera Live View -->
-  <video id="video" autoplay playsinline></video><br>
+<div class="container">
+  <h2>📷 LJK Scanner</h2>
+
+  <video id="video" autoplay playsinline></video>
   <button onclick="capture()">📸 Ambil Gambar</button>
   <canvas id="canvas" style="display:none;"></canvas>
 
-  <!-- Input Kunci Jawaban -->
-  <div class="section">
-    <h3>Kunci Jawaban PG (24 soal, A-D)</h3>
-    <textarea id="kunciPG" placeholder="Contoh: A,B,C,D,A,... (24 huruf)"></textarea>
-
-    <h3>Kunci PG Kompleks (7 soal, A-I)</h3>
-    <textarea id="kunciPGK" placeholder="Contoh: A,B,I,H,... (7 huruf)"></textarea>
-
+  <div class="section card">
+    <h3>📝 Input Kunci Jawaban</h3>
+    <label>PG (24 soal, A–D):</label>
+    <textarea id="kunciPG" placeholder="Contoh: A,B,C,D,A,..."></textarea>
+    <label>PG Kompleks (7 soal, A–I):</label>
+    <textarea id="kunciPGK" placeholder="Contoh: A,B,C,..."></textarea>
     <button onclick="simpanKunci()">💾 Simpan Kunci</button>
     <button onclick="muatKunci()">📂 Muat Kunci</button>
   </div>
 
-  <!-- Proses Deteksi -->
-  <div class="section">
-    <button onclick="proses()">🔍 Proses Jawaban</button>
-    <pre id="output"></pre>
+  <div class="section card">
+    <h3>🔍 Proses Gambar</h3>
+    <button onclick="proses()">🚀 Proses Jawaban</button>
+    <pre id="output">Belum diproses.</pre>
   </div>
+</div>
 
-  <!-- OpenCV.js -->
-  <script async src="https://docs.opencv.org/4.7.0/opencv.js" onload="onOpenCvReady()" type="text/javascript"></script>
-  <script>
-    let video = document.getElementById('video');
-    let canvas = document.getElementById('canvas');
-    let output = document.getElementById('output');
+<script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()" type="text/javascript"></script>
+<script>
+  let video = document.getElementById('video');
+  let canvas = document.getElementById('canvas');
+  let output = document.getElementById('output');
 
-    async function startCamera() {
-      try {
-        let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-      } catch (e) {
-        alert("Izin kamera ditolak: " + e);
-      }
+  async function startCamera() {
+    try {
+      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    } catch (e) {
+      alert("Izin kamera dibutuhkan: " + e.message);
+    }
+  }
+
+  function capture() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    let ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.style.display = 'block';
+  }
+
+  function simpanKunci() {
+    localStorage.setItem("kunciPG", document.getElementById("kunciPG").value);
+    localStorage.setItem("kunciPGK", document.getElementById("kunciPGK").value);
+    alert("✅ Kunci jawaban disimpan.");
+  }
+
+  function muatKunci() {
+    document.getElementById("kunciPG").value = localStorage.getItem("kunciPG") || "";
+    document.getElementById("kunciPGK").value = localStorage.getItem("kunciPGK") || "";
+  }
+
+  function onOpenCvReady() {
+    console.log("OpenCV.js siap digunakan.");
+    startCamera();
+  }
+
+  function proses() {
+    if (!cv || !cv.imread) {
+      alert("OpenCV belum siap");
+      return;
     }
 
-    function capture() {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      let ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.style.display = 'block';
+    output.innerText = "⏳ Memproses gambar...";
+
+    let src = cv.imread(canvas);
+    let gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
+    cv.threshold(gray, gray, 100, 255, cv.THRESH_BINARY_INV);
+
+    let circles = new cv.Mat();
+    cv.HoughCircles(gray, circles, cv.HOUGH_GRADIENT, 1, 20, 100, 30, 10, 50);
+
+    output.innerText = `✅ Bulatan terdeteksi: ${circles.cols}\n`;
+    for (let i = 0; i < circles.cols; ++i) {
+      let x = circles.data32F[i * 3].toFixed(1);
+      let y = circles.data32F[i * 3 + 1].toFixed(1);
+      let r = circles.data32F[i * 3 + 2].toFixed(1);
+      output.innerText += `• Lokasi: (${x}, ${y}), Radius: ${r}\n`;
     }
 
-    function simpanKunci() {
-      localStorage.setItem("kunciPG", document.getElementById("kunciPG").value);
-      localStorage.setItem("kunciPGK", document.getElementById("kunciPGK").value);
-      alert("Kunci disimpan.");
-    }
-
-    function muatKunci() {
-      document.getElementById("kunciPG").value = localStorage.getItem("kunciPG") || "";
-      document.getElementById("kunciPGK").value = localStorage.getItem("kunciPGK") || "";
-    }
-
-    function onOpenCvReady() {
-      console.log("OpenCV.js loaded.");
-      startCamera();
-    }
-
-    function proses() {
-      if (!cv || !cv.imread) {
-        alert("OpenCV belum siap");
-        return;
-      }
-
-      let src = cv.imread(canvas);
-      let dst = new cv.Mat();
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
-      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-      cv.threshold(dst, dst, 100, 255, cv.THRESH_BINARY_INV);
-
-      // Temukan lingkaran (hitam = jawaban)
-      let circles = new cv.Mat();
-      cv.HoughCircles(dst, circles, cv.HOUGH_GRADIENT, 1, 20, 100, 30, 10, 50);
-
-      output.innerText = `Bulatan terdeteksi: ${circles.cols}\n`;
-
-      for (let i = 0; i < circles.cols; ++i) {
-        let x = circles.data32F[i * 3];
-        let y = circles.data32F[i * 3 + 1];
-        let radius = circles.data32F[i * 3 + 2];
-        output.innerText += `- Bulatan di (${x.toFixed(1)}, ${y.toFixed(1)}), radius ${radius.toFixed(1)}\n`;
-      }
-
-      src.delete(); dst.delete(); circles.delete();
-    }
-  </script>
+    src.delete(); gray.delete(); circles.delete();
+  }
+</script>
 </body>
 </html>
