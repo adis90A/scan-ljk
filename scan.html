@@ -1,90 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Scan LJK</title>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <style>
-    canvas, video { max-width: 100%; display: block; margin: auto; }
-    textarea { width: 90%; margin: 10px auto; display: block; }
-  </style>
+  <title>Scan Jawaban</title>
 </head>
 <body>
-  <h2>Input Kunci Jawaban</h2>
-  <textarea id="kunciPG" rows="2" placeholder="Contoh: A,B,C,D,... (24 huruf)"></textarea>
-  <textarea id="kunciPGK" rows="2" placeholder="Contoh: A,B,C,D,E,F,G,H,I (7 huruf)"></textarea>
-  <button onclick="saveKunci()">Simpan Kunci</button>
-  <hr>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
-  <button onclick="captureAndProcess()">Scan Jawaban</button>
-
+  <video id="video" width="100%" autoplay playsinline></video>
   <script>
-    let video = document.getElementById('video');
-    let canvas = document.getElementById('canvas');
-    let ctx = canvas.getContext('2d');
-    let kunciPG = [], kunciPGK = [];
-
-    // Load kunci dari localStorage jika ada
-    if (localStorage.kunciPG) kunciPG = localStorage.kunciPG.split(',');
-    if (localStorage.kunciPGK) kunciPGK = localStorage.kunciPGK.split(',');
-
-    function saveKunci() {
-      kunciPG = document.getElementById('kunciPG').value.split(',');
-      kunciPGK = document.getElementById('kunciPGK').value.split(',');
-      localStorage.kunciPG = kunciPG.join(',');
-      localStorage.kunciPGK = kunciPGK.join(',');
-      alert("Kunci disimpan.");
-    }
-
     async function startCamera() {
-      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
-    }
-
-    function captureAndProcess() {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-      let img = cv.imread(canvas);
-      processImage(img);
-      img.delete();
-    }
-
-    function processImage(src) {
-      let gray = new cv.Mat();
-      let blur = new cv.Mat();
-      let thresh = new cv.Mat();
-
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
-      cv.adaptiveThreshold(blur, thresh, 255, cv.ADAPTIVE_THRESH_MEAN_C,
-          cv.THRESH_BINARY_INV, 11, 2);
-
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-      for (let i = 0; i < contours.size(); i++) {
-        let cnt = contours.get(i);
-        let area = cv.contourArea(cnt);
-        if (area > 300 && area < 1500) {
-          let perimeter = cv.arcLength(cnt, true);
-          let circularity = 4 * Math.PI * (area / (perimeter * perimeter));
-          if (circularity > 0.7) {
-            let moments = cv.moments(cnt);
-            let cx = moments.m10 / moments.m00;
-            let cy = moments.m01 / moments.m00;
-            cv.circle(src, new cv.Point(cx, cy), 10, [0, 255, 0, 255], 2);
-          }
-        }
-        cnt.delete();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+      } catch (error) {
+        alert('Izin kamera ditolak atau tidak tersedia: ' + error);
       }
-
-      cv.imshow('canvas', src);
-      gray.delete(); blur.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
     }
-
     startCamera();
   </script>
 </body>
